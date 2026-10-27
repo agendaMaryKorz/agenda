@@ -1,6 +1,26 @@
 (() => {
   'use strict';
 
+  // Precisa ser igual à versão no index.html. Se o navegador misturar arquivos de versões diferentes
+  // (guardados em cache), a página é recarregada uma vez para buscar tudo atualizado.
+  const VERSAO = '2026.10.27-1';
+  const CHAVE_RECARGA = 'clinica-agenda-recarga';
+  const versaoPagina = document.querySelector('meta[name="app-versao"]')?.content;
+  if (versaoPagina !== VERSAO) {
+    let jaRecarregou = false;
+    try {
+      jaRecarregou = sessionStorage.getItem(CHAVE_RECARGA) === VERSAO;
+      sessionStorage.setItem(CHAVE_RECARGA, VERSAO);
+    } catch { /* sem sessionStorage: tenta recarregar mesmo assim */ }
+    if (!jaRecarregou) {
+      location.replace(`${location.pathname}?v=${Date.now()}`);
+      return;
+    }
+    console.warn(`Versões diferentes: página ${versaoPagina}, app ${VERSAO}.`);
+  } else if (/[?&]v=/.test(location.search)) {
+    history.replaceState(null, '', location.pathname);
+  }
+
   const CFG = Object.assign({
     GOOGLE_CLIENT_ID: '',
     CALENDAR_ID: 'primary',
@@ -100,7 +120,12 @@
         body: body ? JSON.stringify(body) : undefined,
       });
       if (resp.status === 401 && tentativa === 0) {
-        await this.pedirToken('');
+        // O acesso do Google dura cerca de 1 hora; renova e tenta de novo.
+        try {
+          await this.pedirToken('');
+        } catch (e) {
+          throw new Error('A conexão com o Google expirou. Clique em "Sair" e depois em "Entrar com Google".');
+        }
         return this.api(path, { method, params, body }, 1);
       }
       if (!resp.ok) {
