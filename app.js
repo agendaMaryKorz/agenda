@@ -3,7 +3,7 @@
 
   // Precisa ser igual à versão no index.html. Se o navegador misturar arquivos de versões diferentes
   // (guardados em cache), a página é recarregada uma vez para buscar tudo atualizado.
-  const VERSAO = '2026.10.27-1';
+  const VERSAO = '2026.10.27-2';
   const CHAVE_RECARGA = 'clinica-agenda-recarga';
   const versaoPagina = document.querySelector('meta[name="app-versao"]')?.content;
   if (versaoPagina !== VERSAO) {
@@ -31,6 +31,7 @@
     HORA_FIM: '20:00',
     INTERVALO_MIN: 60,
     DIAS_ATENDIMENTO: [1, 2, 3, 4, 5],
+    COBRANCA_PADRAO: 'dia',
   }, window.APP_CONFIG || {});
 
   const APP_TAG = 'clinica-agenda';
@@ -65,10 +66,46 @@
     toast._t = setTimeout(() => { el.hidden = true; }, 3500);
   }
 
-  // Situação de uma sessão: pago, vencido (já passou e não pagou) ou aberto (ainda vai acontecer / hoje).
+  // Cobrança: define quando o pagamento de cada sessão vence.
+  const COBRANCAS = {
+    dia: { nome: 'No dia da sessão', curto: 'No dia', dica: 'Vence no dia de cada sessão.' },
+    mes: { nome: 'Antecipado – mês', curto: 'Antecipado (mês)', dica: 'Todas as sessões do mês vencem na 1ª sessão do paciente naquele mês.' },
+    todos: { nome: 'Antecipado – todos os agendamentos', curto: 'Antecipado (pacote)', dica: 'Todas as sessões criadas juntas (com "Repetir") vencem na 1ª sessão.' },
+    fim_mes: { nome: 'No fim do mês', curto: 'Fim do mês', dica: 'Vence no último dia do mês de cada sessão.' },
+  };
+  const cobrancaDe = (s) => (COBRANCAS[s.cobranca] ? s.cobranca : 'dia');
+
+  // Grupo de sessões que vencem juntas (antecipados): mesmo paciente e mês, ou mesmo pacote.
+  function grupoDe(s) {
+    const c = cobrancaDe(s);
+    if (c === 'mes') return `mes|${s.paciente}|${ymd(s.inicio).slice(0, 7)}`;
+    if (c === 'todos') return `todos|${s.serie || s.id}`;
+    return null;
+  }
+
+  // Primeira data de cada grupo antecipado; refeito a cada renderização.
+  let inicioDosGrupos = new Map();
+  function indexarGrupos() {
+    inicioDosGrupos = new Map();
+    for (const s of estado.sessoes) {
+      const g = grupoDe(s);
+      if (!g) continue;
+      const d = ymd(s.inicio);
+      if (!inicioDosGrupos.has(g) || d < inicioDosGrupos.get(g)) inicioDosGrupos.set(g, d);
+    }
+  }
+
+  function vencimento(s) {
+    const c = cobrancaDe(s);
+    if (c === 'fim_mes') return ymd(new Date(s.inicio.getFullYear(), s.inicio.getMonth() + 1, 0));
+    const g = grupoDe(s);
+    return (g && inicioDosGrupos.get(g)) || ymd(s.inicio);
+  }
+
+  // Situação de uma sessão: pago, vencido (vencimento já passou e não pagou) ou aberto (a receber).
   function situacao(s) {
     if (s.pago) return 'pago';
-    return ymd(s.inicio) < hojeStr() ? 'vencido' : 'aberto';
+    return vencimento(s) < hojeStr() ? 'vencido' : 'aberto';
   }
   const ROTULO = { pago: 'Pago', vencido: 'Vencido', aberto: 'A receber' };
 
@@ -145,6 +182,8 @@
         valor: Number(p.valor) || 0,
         pago: p.pago === 'sim',
         dataPagamento: p.dataPagamento || '',
+        cobranca: p.cobranca || 'dia',
+        serie: p.serie || '',
         obs: ev.description || '',
         link: ev.htmlLink,
       };
@@ -165,6 +204,8 @@
             valor: String(s.valor),
             pago: s.pago ? 'sim' : 'nao',
             dataPagamento: s.dataPagamento || '',
+            cobranca: s.cobranca || 'dia',
+            serie: s.serie || '',
           },
         },
       };
@@ -474,6 +515,7 @@
 
   // ---------- renderização ----------
   function render() {
+    indexarGrupos();
     renderAgenda();
 
     const mesIni = inicioDoMes(estado.data);
@@ -514,6 +556,7 @@
         <td>${hm(s.inicio)}–${hm(s.fim)}</td>
         <td>${esc(s.paciente)}${s.obs ? ` <span title="${esc(s.obs)}">📝</span>` : ''}</td>
         <td class="num">${fmtMoeda(s.valor)}</td>
+        <td>${fmtDataCurta(vencimento(s))}<br><small class="cobranca">${COBRANCAS[cobrancaDe(s)].curto}</small></td>
         <td><span class="status ${st}">${ROTULO[st]}</span>${s.pago && s.dataPagamento ? ` <small>${fmtDataCurta(s.dataPagamento)}</small>` : ''}</td>
         <td><input type="checkbox" data-acao="pago" ${s.pago ? 'checked' : ''} aria-label="Marcar como pago"></td>
         <td class="acoes-linha">
@@ -580,10 +623,28 @@
     f.pago.checked = !!s?.pago;
     f.dataPagamento.value = s?.dataPagamento || '';
     f.obs.value = s?.obs || '';
+    f.cobranca.value = s ? cobrancaDe(s) : (COBRANCAS[CFG.COBRANCA_PADRAO] ? CFG.COBRANCA_PADRAO : 'dia');
+    atualizarDicaCobranca();
     f.vezes.value = 4;
     atualizarRepeticao();
     $('#dlg').showModal();
     f.paciente.focus();
+  }
+
+  function atualizarDicaCobranca() {
+    $('#cobranca-dica').textContent = COBRANCAS[$('#form').cobranca.value].dica;
+  }
+
+  // Paciente já cadastrado: sugere o valor e a cobrança usados na última sessão dele.
+  function sugerirDoPaciente() {
+    const f = $('#form');
+    if (f.dataset.id) return;
+    const nome = f.paciente.value.trim();
+    const ultima = estado.sessoes.filter((s) => s.paciente === nome).at(-1);
+    if (!ultima) return;
+    f.valor.value = ultima.valor;
+    f.cobranca.value = cobrancaDe(ultima);
+    atualizarDicaCobranca();
   }
 
   // Data da i-ésima sessão de uma repetição (i = 0 é a primeira).
@@ -630,22 +691,28 @@
       valor: Number(f.valor.value),
       pago,
       dataPagamento: pago ? (f.dataPagamento.value || hojeStr()) : '',
+      cobranca: f.cobranca.value,
       obs: f.obs.value.trim(),
     };
     if (base.id) {
       const atual = estado.sessoes.find((s) => s.id === base.id);
       if (atual?.link) base.link = atual.link;
+      base.serie = atual?.serie || '';
     }
     const { tipo, vezes } = base.id ? { tipo: '', vezes: 1 } : lerRepeticao(f);
     const repeticoes = vezes;
+    if (repeticoes > 1) base.serie = `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
     $('#dlg').close();
     $('#carregando').hidden = false;
     try {
       for (let i = 0; i < repeticoes; i++) {
         const ini = dataDaRepeticao(inicio, tipo, i);
-        // Em sessões repetidas, só a primeira herda o "pago".
-        const extra = i === 0 ? {} : { pago: false, dataPagamento: '' };
+        // Nas repetições, o "pago" vale só para a 1ª sessão, exceto no antecipado:
+        // pacote inteiro (todos) ou as sessões do mesmo mês da 1ª (mês).
+        const pagoJunto = base.cobranca === 'todos' ||
+          (base.cobranca === 'mes' && ini.getMonth() === inicio.getMonth() && ini.getFullYear() === inicio.getFullYear());
+        const extra = i === 0 || pagoJunto ? {} : { pago: false, dataPagamento: '' };
         await salvar({ ...base, ...extra, inicio: ini, fim: new Date(ini.getTime() + duracao) });
       }
       toast(repeticoes > 1 ? `${repeticoes} sessões criadas.` : 'Sessão salva.');
@@ -669,7 +736,18 @@
       if (acao === 'editar') return abrirForm(s);
       if (acao === 'pago') {
         alvo.disabled = true;
-        await marcarPago(s, alvo.checked);
+        const g = alvo.checked ? grupoDe(s) : null;
+        const outras = g ? estado.sessoes.filter((x) => x.id !== s.id && !x.pago && grupoDe(x) === g) : [];
+        const qual = cobrancaDe(s) === 'mes' ? `de ${nomeMes(s.inicio).toLowerCase()}` : 'do mesmo pacote';
+        const juntas = outras.length && confirm(
+          `Pagamento antecipado: marcar também as outras ${outras.length} ${outras.length === 1 ? 'sessão' : 'sessões'} de ${s.paciente} ${qual} como pagas?\n\n` +
+          `Total: ${fmtMoeda([s, ...outras].reduce((t, x) => t + x.valor, 0))}`);
+        $('#carregando').hidden = false;
+        try {
+          for (const x of [s, ...(juntas ? outras : [])]) await marcarPago(x, alvo.checked);
+        } finally {
+          $('#carregando').hidden = true;
+        }
       }
       if (acao === 'excluir') {
         if (!confirm(`Excluir a sessão de ${s.paciente} em ${fmtData(s.inicio)}? Ela também será removida do Google Agenda.`)) return;
@@ -762,6 +840,8 @@
   $('#agenda').addEventListener('click', acaoAgenda);
   $('#dlg-cancelar').addEventListener('click', () => $('#dlg').close());
   $('#form').addEventListener('submit', enviarForm);
+  $('#form').cobranca.addEventListener('change', atualizarDicaCobranca);
+  $('#form').paciente.addEventListener('change', sugerirDoPaciente);
   ['repetir', 'vezes', 'data', 'hora'].forEach((n) => $('#form')[n].addEventListener('input', atualizarRepeticao));
   $('#form').pago.addEventListener('change', (e) => {
     const f = $('#form');

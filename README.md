@@ -12,6 +12,12 @@ Site simples para controlar as sessões e os pagamentos de uma clínica de psico
   - **Mês**: calendário com os pacientes de cada dia e quantos horários ainda estão livres. Clique no dia para abri-lo.
   - **Ano**: os 12 meses, com os dias mais cheios em cor mais forte e o total de sessões e recebido em cada mês.
   - O horário de atendimento (início, fim, intervalo e dias da semana) é ajustado em `config.js`.
+- **Cobrança** (define quando cada sessão vence):
+  - **No dia da sessão**: vence na data da sessão.
+  - **Antecipado – mês**: todas as sessões do paciente no mês vencem na 1ª sessão daquele mês.
+  - **Antecipado – todos os agendamentos**: as sessões criadas juntas (com "Repetir") vencem na 1ª sessão.
+  - **No fim do mês**: vence no último dia do mês.
+  Nos antecipados, ao marcar uma sessão como paga, o sistema oferece marcar as outras do mesmo mês/pacote.
 - **Pagamento**: uma caixinha "Pago?" em cada sessão. A data do pagamento fica registrada.
   No Google Agenda o evento fica **verde** quando está pago e **laranja** quando está em aberto.
 - **Resumo do mês**:

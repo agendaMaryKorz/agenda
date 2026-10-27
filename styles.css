@@ -140,6 +140,10 @@ dialog label { min-width: 0; }
 dialog label.check input { width: 18px; }
 dialog label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: 15px; }
 .linha { display: flex; gap: 12px; }
+dialog label.estreito { flex: 0 0 120px; }
+dialog label.largo { flex: 1; }
+.dica-campo { color: var(--muted); font-size: 0.8rem; margin-top: -6px; }
+small.cobranca { color: var(--muted); font-size: 0.75rem; }
 .resumo-repeticao { color: var(--primary); font-size: 0.85rem; margin-top: -4px; }
 .acoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 
@@ -245,6 +249,7 @@ button.horario:hover { filter: brightness(0.97); }
   .barra { flex-direction: column; align-items: stretch; }
   .mes-nav { justify-content: center; }
   .linha { flex-direction: column; }
+  dialog label.estreito { flex: 1; }
   .filtros { width: 100%; }
   .filtros input { flex: 1; min-width: 0; }
 }

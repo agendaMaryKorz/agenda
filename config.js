@@ -12,6 +12,10 @@ window.APP_CONFIG = {
   VALOR_PADRAO: 150,
   DURACAO_PADRAO_MIN: 50,
 
+  // Cobrança sugerida para novas sessões:
+  // 'dia' = no dia da sessão, 'mes' = antecipado (mês), 'todos' = antecipado (todos os agendamentos), 'fim_mes' = no fim do mês.
+  COBRANCA_PADRAO: 'dia',
+
   // Horário de atendimento, usado para mostrar os horários livres.
   HORA_INICIO: '07:00',
   HORA_FIM: '22:00',

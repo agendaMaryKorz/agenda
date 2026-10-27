@@ -4,10 +4,10 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <!-- Ao publicar uma mudança, troque a versão aqui, nos três arquivos abaixo e em VERSAO no app.js. -->
-  <meta name="app-versao" content="2026.10.27-1">
+  <meta name="app-versao" content="2026.10.27-2">
   <title>Agenda da Clínica</title>
-  <link rel="stylesheet" href="styles.css?v=2026.10.27-1">
-  <script src="config.js?v=2026.10.27-1"></script>
+  <link rel="stylesheet" href="styles.css?v=2026.10.27-2">
+  <script src="config.js?v=2026.10.27-2"></script>
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -84,7 +84,7 @@
       <div class="tabela-wrap">
         <table>
           <thead>
-            <tr><th>Data</th><th>Horário</th><th>Paciente</th><th class="num">Valor</th><th>Situação</th><th>Pago?</th><th></th></tr>
+            <tr><th>Data</th><th>Horário</th><th>Paciente</th><th class="num">Valor</th><th>Vencimento</th><th>Situação</th><th>Pago?</th><th></th></tr>
           </thead>
           <tbody id="lista"></tbody>
         </table>
@@ -93,7 +93,7 @@
     </section>
 
     <section class="painel">
-      <div class="painel-topo"><h3>Quem está devendo</h3><small>Sessões já realizadas e não pagas, de todos os meses</small></div>
+      <div class="painel-topo"><h3>Quem está devendo</h3><small>Pagamentos com vencimento já passado e não pagos, de todos os meses</small></div>
       <div class="tabela-wrap">
         <table>
           <thead>
@@ -122,7 +122,18 @@
         <label>Duração (min) <input name="duracao" type="number" min="5" step="5" required></label>
       </div>
       <div class="linha">
-        <label>Valor (R$) <input name="valor" type="number" min="0" step="0.01" required></label>
+        <label class="estreito">Valor (R$) <input name="valor" type="number" min="0" step="0.01" required></label>
+        <label class="largo">Cobrança
+          <select name="cobranca">
+            <option value="dia">No dia da sessão</option>
+            <option value="mes">Antecipado – mês</option>
+            <option value="todos">Antecipado – todos os agendamentos</option>
+            <option value="fim_mes">No fim do mês</option>
+          </select>
+        </label>
+      </div>
+      <small id="cobranca-dica" class="dica-campo"></small>
+      <div class="linha so-nova">
         <label class="so-nova">Repetir
           <select name="repetir">
             <option value="">Não repetir</option>
@@ -152,6 +163,6 @@
 
   <div id="toast" class="toast" hidden></div>
 
-  <script src="app.js?v=2026.10.27-1"></script>
+  <script src="app.js?v=2026.10.27-2"></script>
 </body>
 </html>
