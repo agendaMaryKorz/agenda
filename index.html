@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agenda da Clínica</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="config.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+  <!-- Tela de entrada -->
+  <section id="tela-login" class="login">
+    <div class="login-card">
+      <h1>Agenda da Clínica</h1>
+      <p>Controle de sessões e pagamentos, integrado ao Google Agenda.</p>
+      <button id="btn-google" class="btn primario">Entrar com Google</button>
+      <p id="aviso-config" class="aviso" hidden>
+        O ID do cliente Google ainda não foi configurado em <code>config.js</code>.
+        Veja o README para configurar. Enquanto isso, use o modo local.
+      </p>
+      <button id="btn-local" class="btn link">Usar modo local (sem Google, dados só neste navegador)</button>
+    </div>
+  </section>
+
+  <!-- Aplicação -->
+  <main id="tela-app" hidden>
+    <header class="topo">
+      <h1>Agenda da Clínica</h1>
+      <div class="topo-direita">
+        <span id="modo" class="etiqueta"></span>
+        <button id="btn-sair" class="btn link">Sair</button>
+      </div>
+    </header>
+
+    <div class="barra">
+      <div class="mes-nav">
+        <button id="mes-anterior" class="btn icone" aria-label="Mês anterior">‹</button>
+        <h2 id="mes-titulo"></h2>
+        <button id="mes-proximo" class="btn icone" aria-label="Próximo mês">›</button>
+        <button id="mes-hoje" class="btn link">Hoje</button>
+      </div>
+      <button id="btn-nova" class="btn primario">+ Nova sessão</button>
+    </div>
+
+    <section class="cards">
+      <div class="card ok"><span>Pago no mês</span><strong id="r-pago">–</strong><small id="r-pago-qtd"></small></div>
+      <div class="card alerta"><span>Vencido (em aberto)</span><strong id="r-vencido">–</strong><small id="r-vencido-qtd"></small></div>
+      <div class="card neutro"><span>A receber no mês</span><strong id="r-receber">–</strong><small id="r-receber-qtd"></small></div>
+      <div class="card neutro"><span>Sessões no mês</span><strong id="r-sessoes">–</strong><small id="r-sessoes-valor"></small></div>
+    </section>
+
+    <section class="painel">
+      <div class="painel-topo">
+        <h3>Sessões do mês</h3>
+        <div class="filtros">
+          <input id="filtro-nome" type="search" placeholder="Buscar paciente">
+          <select id="filtro-status">
+            <option value="">Todos</option>
+            <option value="pago">Pagos</option>
+            <option value="aberto">A receber</option>
+            <option value="vencido">Vencidos</option>
+          </select>
+        </div>
+      </div>
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr><th>Data</th><th>Horário</th><th>Paciente</th><th class="num">Valor</th><th>Situação</th><th>Pago?</th><th></th></tr>
+          </thead>
+          <tbody id="lista"></tbody>
+        </table>
+      </div>
+      <p id="vazio" class="vazio" hidden>Nenhuma sessão neste mês.</p>
+    </section>
+
+    <section class="painel">
+      <div class="painel-topo"><h3>Quem está devendo</h3><small>Sessões já realizadas e não pagas, de todos os meses</small></div>
+      <div class="tabela-wrap">
+        <table>
+          <thead>
+            <tr><th>Paciente</th><th class="num">Sessões</th><th>Mais antiga</th><th class="num">Total devido</th><th></th></tr>
+          </thead>
+          <tbody id="devedores"></tbody>
+        </table>
+      </div>
+      <p id="sem-devedores" class="vazio" hidden>Ninguém devendo. 🎉</p>
+    </section>
+
+    <div id="carregando" class="carregando" hidden>Carregando…</div>
+  </main>
+
+  <!-- Formulário de sessão -->
+  <dialog id="dlg">
+    <form id="form" method="dialog">
+      <h3 id="dlg-titulo">Nova sessão</h3>
+      <label>Paciente
+        <input name="paciente" required list="pacientes" autocomplete="off">
+        <datalist id="pacientes"></datalist>
+      </label>
+      <div class="linha">
+        <label>Data <input name="data" type="date" required></label>
+        <label>Horário <input name="hora" type="time" required></label>
+        <label>Duração (min) <input name="duracao" type="number" min="5" step="5" required></label>
+      </div>
+      <div class="linha">
+        <label>Valor (R$) <input name="valor" type="number" min="0" step="0.01" required></label>
+        <label id="campo-repetir">Repetir semanalmente
+          <select name="repetir">
+            <option value="1">Não repetir</option>
+            <option value="4">4 semanas</option>
+            <option value="8">8 semanas</option>
+            <option value="12">12 semanas</option>
+          </select>
+        </label>
+      </div>
+      <div class="linha">
+        <label class="check"><input name="pago" type="checkbox"> Pago</label>
+        <label>Data do pagamento <input name="dataPagamento" type="date"></label>
+      </div>
+      <label>Observações <textarea name="obs" rows="2"></textarea></label>
+      <div class="acoes">
+        <button type="button" id="dlg-cancelar" class="btn">Cancelar</button>
+        <button type="submit" class="btn primario">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
