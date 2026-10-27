@@ -121,15 +121,19 @@
       </div>
       <div class="linha">
         <label>Valor (R$) <input name="valor" type="number" min="0" step="0.01" required></label>
-        <label id="campo-repetir">Repetir semanalmente
+        <label class="so-nova">Repetir
           <select name="repetir">
-            <option value="1">Não repetir</option>
-            <option value="4">4 semanas</option>
-            <option value="8">8 semanas</option>
-            <option value="12">12 semanas</option>
+            <option value="">Não repetir</option>
+            <option value="semanal">Toda semana</option>
+            <option value="quinzenal">A cada 15 dias</option>
+            <option value="mensal">1 vez por mês</option>
           </select>
         </label>
+        <label id="campo-vezes" class="so-nova">Quantas sessões
+          <input name="vezes" type="number" min="2" max="52" step="1">
+        </label>
       </div>
+      <small id="repetir-resumo" class="resumo-repeticao" hidden></small>
       <div class="linha">
         <label class="check"><input name="pago" type="checkbox"> Pago</label>
         <label>Data do pagamento <input name="dataPagamento" type="date"></label>

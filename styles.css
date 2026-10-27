@@ -135,9 +135,12 @@ dialog {
 dialog::backdrop { background: rgba(0, 0, 0, 0.4); }
 dialog form { padding: 20px; display: flex; flex-direction: column; gap: 12px; }
 dialog label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; color: var(--muted); flex: 1; }
-dialog label input, dialog label select, dialog label textarea { color: var(--text); font-size: 15px; }
+dialog label input, dialog label select, dialog label textarea { color: var(--text); font-size: 15px; width: 100%; min-width: 0; }
+dialog label { min-width: 0; }
+dialog label.check input { width: 18px; }
 dialog label.check { flex-direction: row; align-items: center; gap: 8px; color: var(--text); font-size: 15px; }
 .linha { display: flex; gap: 12px; }
+.resumo-repeticao { color: var(--primary); font-size: 0.85rem; margin-top: -4px; }
 .acoes { display: flex; justify-content: flex-end; gap: 8px; margin-top: 4px; }
 
 .carregando, .toast {

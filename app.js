@@ -542,7 +542,7 @@
     f.reset();
     f.dataset.id = s?.id || '';
     $('#dlg-titulo').textContent = s ? 'Editar sessão' : 'Nova sessão';
-    $('#campo-repetir').hidden = !!s;
+    document.querySelectorAll('.so-nova').forEach((el) => { el.hidden = !!s; });
     const hoje = new Date();
     const mes = inicioDoMes(estado.data);
     const mesmoMes = mes.getMonth() === hoje.getMonth() && mes.getFullYear() === hoje.getFullYear();
@@ -555,8 +555,37 @@
     f.pago.checked = !!s?.pago;
     f.dataPagamento.value = s?.dataPagamento || '';
     f.obs.value = s?.obs || '';
+    f.vezes.value = 4;
+    atualizarRepeticao();
     $('#dlg').showModal();
     f.paciente.focus();
+  }
+
+  // Data da i-ésima sessão de uma repetição (i = 0 é a primeira).
+  function dataDaRepeticao(inicio, tipo, i) {
+    if (tipo === 'mensal') {
+      // Mesmo dia do mês; em meses mais curtos (ex.: dia 31), usa o último dia.
+      const ultimoDia = new Date(inicio.getFullYear(), inicio.getMonth() + i + 1, 0).getDate();
+      return new Date(inicio.getFullYear(), inicio.getMonth() + i, Math.min(inicio.getDate(), ultimoDia), inicio.getHours(), inicio.getMinutes());
+    }
+    const d = new Date(inicio);
+    d.setDate(d.getDate() + (tipo === 'quinzenal' ? 14 : 7) * i);
+    return d;
+  }
+
+  function atualizarRepeticao() {
+    const f = $('#form');
+    const tipo = f.repetir.value;
+    const vezes = Number(f.vezes.value);
+    const novo = !f.dataset.id;
+    $('#campo-vezes').hidden = !novo || !tipo;
+    f.vezes.required = novo && !!tipo;
+    const resumo = $('#repetir-resumo');
+    resumo.hidden = !novo || !tipo || !f.data.value || !(vezes >= 2);
+    if (resumo.hidden) return;
+    const inicio = new Date(`${f.data.value}T${f.hora.value || '00:00'}`);
+    const ultima = dataDaRepeticao(inicio, tipo, vezes - 1);
+    resumo.textContent = `Serão criadas ${vezes} sessões, de ${inicio.toLocaleDateString('pt-BR')} até ${ultima.toLocaleDateString('pt-BR')}.`;
   }
 
   async function enviarForm(ev) {
@@ -577,14 +606,14 @@
       const atual = estado.sessoes.find((s) => s.id === base.id);
       if (atual?.link) base.link = atual.link;
     }
-    const repeticoes = base.id ? 1 : Number(f.repetir.value);
+    const tipo = base.id ? '' : f.repetir.value;
+    const repeticoes = tipo ? Number(f.vezes.value) : 1;
 
     $('#dlg').close();
     $('#carregando').hidden = false;
     try {
       for (let i = 0; i < repeticoes; i++) {
-        const ini = new Date(inicio);
-        ini.setDate(ini.getDate() + 7 * i);
+        const ini = dataDaRepeticao(inicio, tipo, i);
         // Em sessões repetidas, só a primeira herda o "pago".
         const extra = i === 0 ? {} : { pago: false, dataPagamento: '' };
         await salvar({ ...base, ...extra, inicio: ini, fim: new Date(ini.getTime() + duracao) });
@@ -703,6 +732,7 @@
   $('#agenda').addEventListener('click', acaoAgenda);
   $('#dlg-cancelar').addEventListener('click', () => $('#dlg').close());
   $('#form').addEventListener('submit', enviarForm);
+  ['repetir', 'vezes', 'data', 'hora'].forEach((n) => $('#form')[n].addEventListener('input', atualizarRepeticao));
   $('#form').pago.addEventListener('change', (e) => {
     const f = $('#form');
     if (e.target.checked && !f.dataPagamento.value) f.dataPagamento.value = hojeStr();
