@@ -6,6 +6,12 @@ Site simples para controlar as sessões e os pagamentos de uma clínica de psico
 
 - **Agendamento**: cada sessão (paciente, data, horário, duração e valor) vira um evento no seu Google Agenda.
   Dá para criar sessões semanais repetidas (4, 8 ou 12 semanas) de uma vez.
+- **Agenda (Dia, Mês e Ano)**:
+  - **Dia**: todos os horários de atendimento, mostrando os **livres** (clique para agendar) e os **ocupados**
+    com o nome do paciente e a situação do pagamento. Outros compromissos do Google Agenda também aparecem como ocupados.
+  - **Mês**: calendário com os pacientes de cada dia e quantos horários ainda estão livres. Clique no dia para abri-lo.
+  - **Ano**: os 12 meses, com os dias mais cheios em cor mais forte e o total de sessões e recebido em cada mês.
+  - O horário de atendimento (início, fim, intervalo e dias da semana) é ajustado em `config.js`.
 - **Pagamento**: uma caixinha "Pago?" em cada sessão. A data do pagamento fica registrada.
   No Google Agenda o evento fica **verde** quando está pago e **laranja** quando está em aberto.
 - **Resumo do mês**:

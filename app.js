@@ -7,6 +7,10 @@
     VALOR_PADRAO: 150,
     DURACAO_PADRAO_MIN: 50,
     MESES_HISTORICO: 24,
+    HORA_INICIO: '08:00',
+    HORA_FIM: '20:00',
+    INTERVALO_MIN: 60,
+    DIAS_ATENDIMENTO: [1, 2, 3, 4, 5],
   }, window.APP_CONFIG || {});
 
   const APP_TAG = 'clinica-agenda';
@@ -27,6 +31,11 @@
   const inicioDoMes = (d) => new Date(d.getFullYear(), d.getMonth(), 1);
   const addMeses = (d, n) => new Date(d.getFullYear(), d.getMonth() + n, 1);
   const hojeStr = () => ymd(new Date());
+  const inicioDoDia = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const addDias = (d, n) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
+  const maiuscula = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  const nomeMes = (d) => maiuscula(d.toLocaleDateString('pt-BR', { month: 'long' }));
+  const SEMANA = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
 
   function toast(msg) {
     const el = $('#toast');
@@ -157,6 +166,38 @@
       return itens;
     },
 
+    // Eventos da agenda que não são sessões (consultas médicas, reuniões...), para mostrar como ocupados.
+    async listarOutros(de, ate) {
+      const itens = [];
+      let pageToken;
+      do {
+        const r = await this.api('', {
+          params: {
+            timeMin: de.toISOString(),
+            timeMax: ate.toISOString(),
+            singleEvents: 'true',
+            orderBy: 'startTime',
+            maxResults: 2500,
+            pageToken,
+          },
+        });
+        for (const ev of r.items || []) {
+          if (ev.status === 'cancelled' || ev.transparency === 'transparent') continue;
+          if (ev.extendedProperties?.private?.app === APP_TAG) continue;
+          const diaInteiro = !ev.start.dateTime;
+          itens.push({
+            titulo: ev.summary || '(sem título)',
+            diaInteiro,
+            inicio: diaInteiro ? new Date(`${ev.start.date}T00:00`) : new Date(ev.start.dateTime),
+            fim: diaInteiro ? new Date(`${ev.end.date}T00:00`) : new Date(ev.end.dateTime),
+            link: ev.htmlLink,
+          });
+        }
+        pageToken = r.nextPageToken;
+      } while (pageToken);
+      return itens;
+    },
+
     async criar(s) { return this.deEvento(await this.api('', { method: 'POST', body: this.paraEvento(s) })); },
     async atualizar(s) { return this.deEvento(await this.api(`/${encodeURIComponent(s.id)}`, { method: 'PATCH', body: this.paraEvento(s) })); },
     async remover(id) { await this.api(`/${encodeURIComponent(id)}`, { method: 'DELETE' }); },
@@ -175,6 +216,7 @@
       } catch { return []; }
     },
     gravar(lista) { localStorage.setItem(this.chave, JSON.stringify(lista)); },
+    async listarOutros() { return []; },
     async listar(de, ate) {
       return this.ler().filter((s) => s.inicio >= de && s.inicio < ate).sort((a, b) => a.inicio - b.inicio);
     },
@@ -191,40 +233,229 @@
   };
 
   // ---------- estado ----------
+  const VISOES = ['dia', 'mes', 'ano'];
   const estado = {
     store: null,
-    mes: inicioDoMes(new Date()),
-    sessoes: [],   // todas as sessões carregadas (histórico + mês exibido)
+    data: inicioDoDia(new Date()),  // dia selecionado; o mês e o ano exibidos derivam dele
+    visao: VISOES.includes(localStorage.getItem('clinica-agenda-visao')) ? localStorage.getItem('clinica-agenda-visao') : 'dia',
+    sessoes: [],   // todas as sessões carregadas (histórico + ano exibido)
+    faixa: '',     // período já carregado em estado.sessoes
+    outros: [],    // outros compromissos do período exibido (dia ou mês)
   };
 
   // ---------- carregamento ----------
+  // Período dos outros compromissos, conforme a visão (no ano eles não são mostrados).
+  function periodoOutros() {
+    if (estado.visao === 'dia') return [estado.data, addDias(estado.data, 1)];
+    if (estado.visao === 'mes') { const ini = inicioDoMes(estado.data); return [ini, addMeses(ini, 1)]; }
+    return null;
+  }
+
   async function carregar() {
     const hojeMes = inicioDoMes(new Date());
-    const base = estado.mes < hojeMes ? estado.mes : hojeMes;
-    const de = addMeses(base, -CFG.MESES_HISTORICO);
-    const fimMesVisto = addMeses(estado.mes, 1);
+    const ano = estado.data.getFullYear();
+    const inicioAno = new Date(ano, 0, 1);
+    const fimAno = new Date(ano + 1, 0, 1);
+    const de = addMeses(inicioAno < hojeMes ? inicioAno : hojeMes, -CFG.MESES_HISTORICO);
     const fimHoje = addMeses(hojeMes, 1);
-    const ate = fimMesVisto > fimHoje ? fimMesVisto : fimHoje;
+    const ate = fimAno > fimHoje ? fimAno : fimHoje;
+    const faixa = `${ymd(de)}|${ymd(ate)}`;
+    const periodo = periodoOutros();
 
     $('#carregando').hidden = false;
     try {
-      estado.sessoes = await estado.store.listar(de, ate);
-      render();
+      if (faixa !== estado.faixa) {
+        estado.sessoes = (await estado.store.listar(de, ate)).sort((a, b) => a.inicio - b.inicio);
+        estado.faixa = faixa;
+      }
+      estado.outros = periodo ? await estado.store.listarOutros(...periodo) : [];
     } catch (e) {
       console.error(e);
       toast(e.message);
     } finally {
       $('#carregando').hidden = true;
+      render();
     }
+  }
+
+  // ---------- agenda: dia, mês e ano ----------
+  const atende = (d) => CFG.DIAS_ATENDIMENTO.includes(d.getDay());
+
+  function horariosDoDia(d) {
+    const [hi, mi] = CFG.HORA_INICIO.split(':').map(Number);
+    const [hf, mf] = CFG.HORA_FIM.split(':').map(Number);
+    const passo = CFG.INTERVALO_MIN * 60000;
+    const fim = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hf, mf).getTime();
+    const lista = [];
+    for (let t = new Date(d.getFullYear(), d.getMonth(), d.getDate(), hi, mi).getTime(); t + passo <= fim; t += passo) {
+      lista.push({ inicio: new Date(t), fim: new Date(t + passo) });
+    }
+    return lista;
+  }
+
+  // Sessões e outros compromissos com horário que ocupam o dia, em ordem.
+  function ocupacoesDoDia(d, porDia) {
+    const ini = inicioDoDia(d);
+    const fim = addDias(ini, 1);
+    const sessoes = (porDia.get(ymd(d)) || []).map((s) => ({ tipo: 'sessao', inicio: s.inicio, fim: s.fim, s }));
+    const outros = estado.outros
+      .filter((o) => !o.diaInteiro && o.inicio < fim && o.fim > ini)
+      .map((o) => ({ tipo: 'outro', inicio: o.inicio < ini ? ini : o.inicio, fim: o.fim > fim ? fim : o.fim, o }));
+    return [...sessoes, ...outros].sort((a, b) => a.inicio - b.inicio);
+  }
+
+  function livresDoDia(d, ocupacoes) {
+    if (!atende(d)) return [];
+    return horariosDoDia(d).filter((h) => !ocupacoes.some((o) => o.inicio < h.fim && o.fim > h.inicio));
+  }
+
+  function sessoesPorDia() {
+    const mapa = new Map();
+    for (const s of estado.sessoes) {
+      const k = ymd(s.inicio);
+      if (!mapa.has(k)) mapa.set(k, []);
+      mapa.get(k).push(s);
+    }
+    return mapa;
+  }
+
+  function renderDia(porDia) {
+    const d = estado.data;
+    const ocupacoes = ocupacoesDoDia(d, porDia);
+    const livres = livresDoDia(d, ocupacoes);
+    const passou = (h) => h.fim <= new Date();
+    const diaInteiro = estado.outros.filter((o) => o.diaInteiro && o.inicio <= d && o.fim > d);
+    const qtdSessoes = ocupacoes.filter((o) => o.tipo === 'sessao').length;
+
+    $('#agenda-info').textContent = `${qtdSessoes} ${qtdSessoes === 1 ? 'sessão' : 'sessões'} · ${livres.length} ${livres.length === 1 ? 'horário livre' : 'horários livres'}`;
+
+    const linhas = [...ocupacoes, ...livres.map((h) => ({ tipo: 'livre', ...h }))].sort((a, b) => a.inicio - b.inicio);
+    const html = linhas.map((l) => {
+      const hora = `<span class="hora">${hm(l.inicio)}–${hm(l.fim)}</span>`;
+      if (l.tipo === 'livre') {
+        return `<button class="horario livre${passou(l) ? ' passado' : ''}" data-novo="${ymd(l.inicio)}T${hm(l.inicio)}">
+          ${hora}<span class="nome">Livre</span><span class="dica">+ agendar</span></button>`;
+      }
+      if (l.tipo === 'outro') {
+        return `<div class="horario outro">${hora}<span class="nome">${esc(l.o.titulo)}</span><span class="dica">Outro compromisso</span></div>`;
+      }
+      const st = situacao(l.s);
+      return `<button class="horario ocupado st-${st}" data-id="${esc(l.s.id)}">
+        ${hora}<span class="nome">${esc(l.s.paciente)}</span><span class="status ${st}">${ROTULO[st]}</span></button>`;
+    }).join('');
+
+    const avisos = [
+      ...diaInteiro.map((o) => `<p class="aviso-dia">📌 Dia inteiro: ${esc(o.titulo)}</p>`),
+      atende(d) ? '' : '<p class="aviso-dia">Sem atendimento neste dia da semana (ajuste em <code>config.js</code>).</p>',
+    ].join('');
+    $('#agenda').innerHTML = `${avisos}<div class="horarios">${html || '<p class="vazio">Nenhum horário neste dia.</p>'}</div>`;
+  }
+
+  function renderMes(porDia) {
+    const iniMes = inicioDoMes(estado.data);
+    const fimMes = addMeses(iniMes, 1);
+    const hoje = hojeStr();
+    const inicioGrade = addDias(iniMes, -iniMes.getDay());
+    const fimGrade = addDias(fimMes, (7 - fimMes.getDay()) % 7);
+    let totalLivres = 0;
+
+    let celulas = '';
+    for (let d = inicioGrade; d < fimGrade; d = addDias(d, 1)) {
+      const k = ymd(d);
+      const doMes = d >= iniMes && d < fimMes;
+      const ocupacoes = ocupacoesDoDia(d, porDia);
+      const livres = doMes && k >= hoje ? livresDoDia(d, ocupacoes).filter((h) => h.fim > new Date()) : [];
+      totalLivres += livres.length;
+      const diaInteiro = estado.outros.filter((o) => o.diaInteiro && o.inicio <= d && o.fim > d)
+        .map((o) => `<li class="ev outro">📌 ${esc(o.titulo)}</li>`).join('');
+      const itens = diaInteiro + ocupacoes.slice(0, 4).map((o) => o.tipo === 'sessao'
+        ? `<li class="ev st-${situacao(o.s)}">${hm(o.inicio)} ${esc(o.s.paciente)}</li>`
+        : `<li class="ev outro">${hm(o.inicio)} ${esc(o.o.titulo)}</li>`).join('');
+      const mais = ocupacoes.length > 4 ? `<li class="mais">+${ocupacoes.length - 4} mais</li>` : '';
+      celulas += `<button class="dia${doMes ? '' : ' fora'}${k === hoje ? ' hoje' : ''}${atende(d) ? '' : ' folga'}" data-dia="${k}">
+        <span class="dia-num">${d.getDate()}</span>
+        ${ocupacoes.length ? `<span class="dia-qtd">${ocupacoes.length}</span>` : ''}
+        <ul>${itens}${mais}</ul>
+        ${livres.length ? `<span class="dia-livres">${livres.length} ${livres.length === 1 ? 'livre' : 'livres'}</span>` : ''}
+      </button>`;
+    }
+    $('#agenda-info').textContent = `${totalLivres} horários livres a partir de hoje · clique em um dia para ver os horários`;
+    $('#agenda').innerHTML = `<div class="grade-mes">${SEMANA.map((s) => `<div class="semana">${s}</div>`).join('')}${celulas}</div>`;
+  }
+
+  function renderAno(porDia) {
+    const ano = estado.data.getFullYear();
+    const hoje = hojeStr();
+    const nivel = (n) => (n === 0 ? 0 : n <= 2 ? 1 : n <= 5 ? 2 : 3);
+    let totalAno = 0;
+
+    const meses = Array.from({ length: 12 }, (_, m) => {
+      const ini = new Date(ano, m, 1);
+      const fim = addMeses(ini, 1);
+      const chave = ymd(ini).slice(0, 7);
+      let dias = '<span></span>'.repeat(ini.getDay());
+      let qtd = 0;
+      for (let d = ini; d < fim; d = addDias(d, 1)) {
+        const k = ymd(d);
+        const n = (porDia.get(k) || []).length;
+        qtd += n;
+        dias += `<button class="mini-dia n${nivel(n)}${k === hoje ? ' hoje' : ''}" data-dia="${k}" title="${fmtDataCurta(k)}: ${n} ${n === 1 ? 'sessão' : 'sessões'}">${d.getDate()}</button>`;
+      }
+      totalAno += qtd;
+      const recebido = estado.sessoes
+        .filter((s) => s.pago && (s.dataPagamento || ymd(s.inicio)).slice(0, 7) === chave)
+        .reduce((t, s) => t + s.valor, 0);
+      return `<div class="mini-mes">
+        <button class="mini-titulo" data-mes="${chave}">${nomeMes(ini)}</button>
+        <div class="mini-grade">${SEMANA.map((s) => `<span class="mini-sem">${s[0]}</span>`).join('')}${dias}</div>
+        <small>${qtd} ${qtd === 1 ? 'sessão' : 'sessões'} · ${fmtMoeda(recebido)} recebido</small>
+      </div>`;
+    }).join('');
+
+    $('#agenda-info').textContent = `${totalAno} sessões no ano · quanto mais escuro o dia, mais sessões`;
+    $('#agenda').innerHTML = `<div class="grade-ano">${meses}</div>`;
+  }
+
+  function renderAgenda() {
+    const d = estado.data;
+    const titulos = {
+      dia: maiuscula(d.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })),
+      mes: `${nomeMes(d)} de ${d.getFullYear()}`,
+      ano: String(d.getFullYear()),
+    };
+    $('#nav-titulo').textContent = titulos[estado.visao];
+    $('#agenda-titulo').textContent = { dia: 'Horários do dia', mes: 'Agenda do mês', ano: 'Agenda do ano' }[estado.visao];
+    document.querySelectorAll('.aba').forEach((b) => b.classList.toggle('ativa', b.dataset.visao === estado.visao));
+    const porDia = sessoesPorDia();
+    ({ dia: renderDia, mes: renderMes, ano: renderAno })[estado.visao](porDia);
+  }
+
+  function acaoAgenda(ev) {
+    const novo = ev.target.closest('[data-novo]');
+    if (novo) {
+      const [data, hora] = novo.dataset.novo.split('T');
+      return abrirForm(null, { data, hora });
+    }
+    const sessao = ev.target.closest('[data-id]');
+    if (sessao) return abrirForm(estado.sessoes.find((s) => s.id === sessao.dataset.id));
+    const mes = ev.target.closest('[data-mes]');
+    if (mes) {
+      const [a, m] = mes.dataset.mes.split('-').map(Number);
+      return mudarVisao('mes', new Date(a, m - 1, 1));
+    }
+    const dia = ev.target.closest('[data-dia]');
+    if (dia) mudarVisao('dia', new Date(`${dia.dataset.dia}T00:00`));
   }
 
   // ---------- renderização ----------
   function render() {
-    const mesIni = estado.mes;
+    renderAgenda();
+
+    const mesIni = inicioDoMes(estado.data);
     const mesFim = addMeses(mesIni, 1);
     const mesChave = ymd(mesIni).slice(0, 7);
-    const titulo = mesIni.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
-    $('#mes-titulo').textContent = titulo.charAt(0).toUpperCase() + titulo.slice(1);
+    $('#resumo-titulo').textContent = `Resumo de ${nomeMes(mesIni).toLowerCase()} de ${mesIni.getFullYear()}`;
+    $('#lista-titulo').textContent = `Sessões de ${nomeMes(mesIni).toLowerCase()}`;
 
     const doMes = estado.sessoes.filter((s) => s.inicio >= mesIni && s.inicio < mesFim);
 
@@ -306,17 +537,19 @@
     await salvar({ ...s, pago, dataPagamento: pago ? (s.dataPagamento || hojeStr()) : '' });
   }
 
-  function abrirForm(s) {
+  function abrirForm(s, sugestao) {
     const f = $('#form');
     f.reset();
     f.dataset.id = s?.id || '';
     $('#dlg-titulo').textContent = s ? 'Editar sessão' : 'Nova sessão';
     $('#campo-repetir').hidden = !!s;
     const hoje = new Date();
-    const dataPadrao = estado.mes.getMonth() === hoje.getMonth() && estado.mes.getFullYear() === hoje.getFullYear() ? hoje : estado.mes;
+    const mes = inicioDoMes(estado.data);
+    const mesmoMes = mes.getMonth() === hoje.getMonth() && mes.getFullYear() === hoje.getFullYear();
+    const dataPadrao = estado.visao === 'dia' ? estado.data : mesmoMes ? hoje : mes;
     f.paciente.value = s?.paciente || '';
-    f.data.value = s ? ymd(s.inicio) : ymd(dataPadrao);
-    f.hora.value = s ? hm(s.inicio) : '09:00';
+    f.data.value = s ? ymd(s.inicio) : sugestao?.data || ymd(dataPadrao);
+    f.hora.value = s ? hm(s.inicio) : sugestao?.hora || CFG.HORA_INICIO;
     f.duracao.value = s ? Math.round((s.fim - s.inicio) / 60000) : CFG.DURACAO_PADRAO_MIN;
     f.valor.value = s ? s.valor : CFG.VALOR_PADRAO;
     f.pago.checked = !!s?.pago;
@@ -434,13 +667,25 @@
     estado.store?.logout();
     estado.store = null;
     estado.sessoes = [];
+    estado.faixa = '';
     localStorage.removeItem('clinica-agenda-modo');
     $('#tela-app').hidden = true;
     $('#tela-login').hidden = false;
   }
 
-  function mudarMes(n) {
-    estado.mes = n === 0 ? inicioDoMes(new Date()) : addMeses(estado.mes, n);
+  function navegar(n) {
+    const d = estado.data;
+    if (n === 0) estado.data = inicioDoDia(new Date());
+    else if (estado.visao === 'dia') estado.data = addDias(d, n);
+    else if (estado.visao === 'mes') estado.data = addMeses(d, n);
+    else estado.data = new Date(d.getFullYear() + n, d.getMonth(), 1);
+    carregar();
+  }
+
+  function mudarVisao(visao, data) {
+    estado.visao = visao;
+    if (data) estado.data = data;
+    localStorage.setItem('clinica-agenda-visao', visao);
     carregar();
   }
 
@@ -451,9 +696,11 @@
   $('#btn-local').addEventListener('click', () => entrar(LocalStore));
   $('#btn-sair').addEventListener('click', sair);
   $('#btn-nova').addEventListener('click', () => abrirForm(null));
-  $('#mes-anterior').addEventListener('click', () => mudarMes(-1));
-  $('#mes-proximo').addEventListener('click', () => mudarMes(1));
-  $('#mes-hoje').addEventListener('click', () => mudarMes(0));
+  $('#nav-anterior').addEventListener('click', () => navegar(-1));
+  $('#nav-proximo').addEventListener('click', () => navegar(1));
+  $('#nav-hoje').addEventListener('click', () => navegar(0));
+  document.querySelectorAll('.aba').forEach((b) => b.addEventListener('click', () => mudarVisao(b.dataset.visao)));
+  $('#agenda').addEventListener('click', acaoAgenda);
   $('#dlg-cancelar').addEventListener('click', () => $('#dlg').close());
   $('#form').addEventListener('submit', enviarForm);
   $('#form').pago.addEventListener('change', (e) => {

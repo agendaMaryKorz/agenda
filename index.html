@@ -35,14 +35,30 @@
 
     <div class="barra">
       <div class="mes-nav">
-        <button id="mes-anterior" class="btn icone" aria-label="Mês anterior">‹</button>
-        <h2 id="mes-titulo"></h2>
-        <button id="mes-proximo" class="btn icone" aria-label="Próximo mês">›</button>
-        <button id="mes-hoje" class="btn link">Hoje</button>
+        <button id="nav-anterior" class="btn icone" aria-label="Anterior">‹</button>
+        <h2 id="nav-titulo"></h2>
+        <button id="nav-proximo" class="btn icone" aria-label="Próximo">›</button>
+        <button id="nav-hoje" class="btn link">Hoje</button>
       </div>
-      <button id="btn-nova" class="btn primario">+ Nova sessão</button>
+      <div class="barra-direita">
+        <div class="abas" role="tablist">
+          <button class="aba" data-visao="dia" role="tab">Dia</button>
+          <button class="aba" data-visao="mes" role="tab">Mês</button>
+          <button class="aba" data-visao="ano" role="tab">Ano</button>
+        </div>
+        <button id="btn-nova" class="btn primario">+ Nova sessão</button>
+      </div>
     </div>
 
+    <section class="painel">
+      <div class="painel-topo">
+        <h3 id="agenda-titulo">Agenda</h3>
+        <small id="agenda-info"></small>
+      </div>
+      <div id="agenda"></div>
+    </section>
+
+    <h3 id="resumo-titulo" class="secao-titulo"></h3>
     <section class="cards">
       <div class="card ok"><span>Pago no mês</span><strong id="r-pago">–</strong><small id="r-pago-qtd"></small></div>
       <div class="card alerta"><span>Vencido (em aberto)</span><strong id="r-vencido">–</strong><small id="r-vencido-qtd"></small></div>
@@ -52,7 +68,7 @@
 
     <section class="painel">
       <div class="painel-topo">
-        <h3>Sessões do mês</h3>
+        <h3 id="lista-titulo">Sessões do mês</h3>
         <div class="filtros">
           <input id="filtro-nome" type="search" placeholder="Buscar paciente">
           <select id="filtro-status">

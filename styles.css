@@ -146,7 +146,98 @@ dialog label.check { flex-direction: row; align-items: center; gap: 8px; color: 
   font-size: 0.9rem; box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
 }
 
+/* Navegação de visões */
+.barra-direita { display: flex; gap: 10px; align-items: center; }
+.abas { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.aba { font: inherit; border: none; background: none; color: var(--text); padding: 8px 14px; cursor: pointer; }
+.aba + .aba { border-left: 1px solid var(--border); }
+.aba.ativa { background: var(--primary); color: var(--primary-text); }
+.secao-titulo { margin: 4px 0 10px; font-size: 1rem; }
+.mes-nav h2 { min-width: 220px; }
+
+/* Visão do dia */
+.horarios { display: flex; flex-direction: column; gap: 6px; }
+.horario {
+  font: inherit; color: var(--text); text-align: left; width: 100%;
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); border-left-width: 4px;
+}
+button.horario { cursor: pointer; }
+button.horario:hover { filter: brightness(0.97); }
+.horario .hora { font-variant-numeric: tabular-nums; color: var(--muted); min-width: 100px; }
+.horario .nome { flex: 1; font-weight: 600; }
+.horario .dica { color: var(--muted); font-size: 0.85rem; }
+.horario.livre { border-style: dashed; border-left-style: solid; border-left-color: var(--ok); background: transparent; }
+.horario.livre .nome { color: var(--ok); font-weight: 500; }
+.horario.livre .dica { color: var(--primary); }
+.horario.livre.passado { opacity: 0.5; }
+.horario.ocupado { border-left-color: var(--primary); }
+.horario.st-pago { border-left-color: var(--ok); }
+.horario.st-vencido { border-left-color: var(--alert); }
+.horario.st-aberto { border-left-color: var(--warn); }
+.horario.outro { border-left-color: var(--muted); background: var(--bg); }
+.horario.outro .nome { font-weight: 500; }
+.aviso-dia { margin: 0 0 10px; padding: 8px 12px; border-radius: 8px; background: var(--bg); color: var(--muted); font-size: 0.9rem; }
+
+/* Visão do mês */
+.grade-mes { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.semana { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; font-weight: 600; text-align: center; padding: 4px 0; }
+.dia {
+  font: inherit; color: var(--text); text-align: left; cursor: pointer;
+  min-height: 108px; padding: 6px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--surface); display: flex; flex-direction: column; gap: 3px; position: relative; min-width: 0;
+}
+.dia:hover { border-color: var(--primary); }
+.dia.fora { opacity: 0.4; }
+.dia.folga { background: var(--bg); }
+.dia.hoje { border: 2px solid var(--primary); }
+.dia-num { font-weight: 600; font-size: 0.85rem; }
+.dia-qtd { display: none; }
+.dia ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.dia .ev {
+  font-size: 0.75rem; padding: 1px 5px; border-radius: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  border-left: 3px solid var(--primary); background: var(--bg);
+}
+.dia .ev.st-pago { border-left-color: var(--ok); }
+.dia .ev.st-vencido { border-left-color: var(--alert); }
+.dia .ev.st-aberto { border-left-color: var(--warn); }
+.dia .ev.outro { border-left-color: var(--muted); color: var(--muted); }
+.dia .mais { font-size: 0.72rem; color: var(--muted); padding-left: 4px; }
+.dia-livres { margin-top: auto; font-size: 0.72rem; color: var(--ok); }
+
+/* Visão do ano */
+.grade-ano { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+.mini-mes { display: flex; flex-direction: column; gap: 6px; }
+.mini-mes small { color: var(--muted); font-size: 0.78rem; }
+.mini-titulo { font: inherit; font-weight: 600; background: none; border: none; color: var(--primary); text-align: left; padding: 0; cursor: pointer; }
+.mini-grade { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.mini-sem { font-size: 0.65rem; color: var(--muted); text-align: center; }
+.mini-dia {
+  font: inherit; font-size: 0.7rem; aspect-ratio: 1; border: none; border-radius: 4px; cursor: pointer;
+  background: var(--bg); color: var(--text); padding: 0; font-variant-numeric: tabular-nums;
+}
+.mini-dia.n1 { background: color-mix(in srgb, var(--primary) 25%, var(--surface)); }
+.mini-dia.n2 { background: color-mix(in srgb, var(--primary) 55%, var(--surface)); }
+.mini-dia.n3 { background: var(--primary); color: var(--primary-text); }
+.mini-dia.hoje { outline: 2px solid var(--alert); outline-offset: -1px; }
+
+@media (max-width: 960px) {
+  .grade-ano { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
 @media (max-width: 760px) {
+  .barra-direita { justify-content: space-between; }
+  .mes-nav h2 { min-width: 0; flex: 1; font-size: 1rem; }
+  .grade-ano { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dia { min-height: 56px; padding: 4px; align-items: center; }
+  .dia ul, .dia-livres { display: none; }
+  .dia-qtd {
+    display: inline-block; font-size: 0.7rem; background: var(--primary); color: var(--primary-text);
+    border-radius: 999px; padding: 0 6px; font-weight: 600;
+  }
+  .horario { flex-wrap: wrap; gap: 4px 12px; }
+  .horario .hora { min-width: 0; }
   .cards { grid-template-columns: repeat(2, 1fr); }
   .barra { flex-direction: column; align-items: stretch; }
   .mes-nav { justify-content: center; }

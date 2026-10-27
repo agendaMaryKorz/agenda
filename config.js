@@ -12,6 +12,14 @@ window.APP_CONFIG = {
   VALOR_PADRAO: 150,
   DURACAO_PADRAO_MIN: 50,
 
+  // Horário de atendimento, usado para mostrar os horários livres.
+  HORA_INICIO: '07:00',
+  HORA_FIM: '22:00',
+  INTERVALO_MIN: 60,   // de quanto em quanto tempo começa um horário (60 = 08:00, 09:00, 10:00...)
+
+  // Dias de atendimento: 0 = domingo, 1 = segunda, 2 = terça, 3 = quarta, 4 = quinta, 5 = sexta, 6 = sábado.
+  DIAS_ATENDIMENTO: [1, 2, 3, 4, 5],
+
   // Quantos meses para trás o sistema busca sessões (para calcular dívidas antigas).
   MESES_HISTORICO: 24,
 };
