@@ -5,7 +5,7 @@ Site simples para controlar as sessões e os pagamentos de uma clínica de psico
 ## O que ele faz
 
 - **Agendamento**: cada sessão (paciente, data, horário, duração e valor) vira um evento no seu Google Agenda.
-  Dá para repetir a sessão toda semana, a cada 15 dias ou 1 vez por mês, escolhendo quantas sessões criar.
+  Dá para repetir a sessão por 4, 8 ou 12 semanas, a cada 15 dias ou 1 vez por mês (nesses dois, você escolhe quantas sessões criar).
 - **Agenda (Dia, Mês e Ano)**:
   - **Dia**: todos os horários de atendimento, mostrando os **livres** (clique para agendar) e os **ocupados**
     com o nome do paciente e a situação do pagamento. Outros compromissos do Google Agenda também aparecem como ocupados.

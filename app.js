@@ -573,13 +573,18 @@
     return d;
   }
 
+  // Opções "semanal:4" já trazem a quantidade; quinzenal e mensal usam o campo "Quantas sessões".
+  function lerRepeticao(f) {
+    const [tipo, fixo] = f.repetir.value.split(':');
+    return { tipo, fixo: !!fixo, vezes: tipo ? Number(fixo || f.vezes.value) : 1 };
+  }
+
   function atualizarRepeticao() {
     const f = $('#form');
-    const tipo = f.repetir.value;
-    const vezes = Number(f.vezes.value);
+    const { tipo, fixo, vezes } = lerRepeticao(f);
     const novo = !f.dataset.id;
-    $('#campo-vezes').hidden = !novo || !tipo;
-    f.vezes.required = novo && !!tipo;
+    $('#campo-vezes').hidden = !novo || !tipo || fixo;
+    f.vezes.required = novo && !!tipo && !fixo;
     const resumo = $('#repetir-resumo');
     resumo.hidden = !novo || !tipo || !f.data.value || !(vezes >= 2);
     if (resumo.hidden) return;
@@ -606,8 +611,8 @@
       const atual = estado.sessoes.find((s) => s.id === base.id);
       if (atual?.link) base.link = atual.link;
     }
-    const tipo = base.id ? '' : f.repetir.value;
-    const repeticoes = tipo ? Number(f.vezes.value) : 1;
+    const { tipo, vezes } = base.id ? { tipo: '', vezes: 1 } : lerRepeticao(f);
+    const repeticoes = vezes;
 
     $('#dlg').close();
     $('#carregando').hidden = false;
