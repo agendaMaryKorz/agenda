@@ -250,6 +250,8 @@ button.horario:hover { filter: brightness(0.97); }
   .mes-nav { justify-content: center; }
   .linha { flex-direction: column; }
   dialog label.estreito { flex: 1; }
+  #btn-nova { white-space: nowrap; padding: 8px 12px; }
+  .aba { padding: 8px 12px; }
   .filtros { width: 100%; }
   .filtros input { flex: 1; min-width: 0; }
 }

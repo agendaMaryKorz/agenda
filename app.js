@@ -3,7 +3,7 @@
 
   // Precisa ser igual à versão no index.html. Se o navegador misturar arquivos de versões diferentes
   // (guardados em cache), a página é recarregada uma vez para buscar tudo atualizado.
-  const VERSAO = '2026.10.27-2';
+  const VERSAO = '2026.10.28-1';
   const CHAVE_RECARGA = 'clinica-agenda-recarga';
   const versaoPagina = document.querySelector('meta[name="app-versao"]')?.content;
   if (versaoPagina !== VERSAO) {
